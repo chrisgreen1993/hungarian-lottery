@@ -1,12 +1,9 @@
+use rayon::prelude::*;
 use std::env;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 #[cfg(feature = "bench")]
 use std::time::Instant;
-use rayon::prelude::*; 
-
-
-
 struct MatchCounts {
     two: u32,
     three: u32,
@@ -22,9 +19,9 @@ fn is_valid_number(n: u8) -> bool {
 // This allows us to use bitwise operations to check for matches
 // This is much faster than iterating over the ticket and checking each number
 fn create_bitmask(numbers: &[u8]) -> u128 {
-    numbers.iter().fold(0u128, |mask, &num| {
-        mask | (1u128 << (num - 1))
-    })
+    numbers
+        .iter()
+        .fold(0u128, |mask, &num| mask | (1u128 << (num - 1)))
 }
 
 // Build a vector of bitmasks from each line in the file
@@ -44,7 +41,9 @@ fn build_ticket_bitmasks<R: BufRead>(reader: R) -> io::Result<(Vec<u128>, u32)> 
         if nums.len() != 5 {
             eprintln!(
                 "Warning: Skipping malformed line {}: '{}' (expected 5 numbers, got {})",
-                line_count, line, nums.len()
+                line_count,
+                line,
+                nums.len()
             );
         } else if !nums.iter().all(|&n| is_valid_number(n)) {
             eprintln!(
@@ -64,16 +63,19 @@ fn build_ticket_bitmasks<R: BufRead>(reader: R) -> io::Result<(Vec<u128>, u32)> 
 fn report_matches(draw: &[u8], tickets: &[u128]) -> io::Result<MatchCounts> {
     if draw.len() != 5 {
         return Err(io::Error::new(
-            io::ErrorKind::InvalidInput, 
-            format!("Invalid draw format: expected 5 numbers, got {}", draw.len())
+            io::ErrorKind::InvalidInput,
+            format!(
+                "Invalid draw format: expected 5 numbers, got {}",
+                draw.len()
+            ),
         ));
     }
 
     // Validate that all draw numbers are in range 1-90
     if !draw.iter().all(|&n| is_valid_number(n)) {
         return Err(io::Error::new(
-            io::ErrorKind::InvalidInput, 
-            format!("Invalid draw numbers: must be 1-90, got {:?}", draw)
+            io::ErrorKind::InvalidInput,
+            format!("Invalid draw numbers: must be 1-90, got {:?}", draw),
         ));
     }
 
@@ -85,16 +87,46 @@ fn report_matches(draw: &[u8], tickets: &[u128]) -> io::Result<MatchCounts> {
             // Check the number of matches
             let match_count = (ticket_bitmask & draw_bitmask).count_ones() as u8;
             match match_count {
-                2 => MatchCounts { two: 1, three: 0, four: 0, five: 0 },
-                3 => MatchCounts { two: 0, three: 1, four: 0, five: 0 },
-                4 => MatchCounts { two: 0, three: 0, four: 1, five: 0 },
-                5 => MatchCounts { two: 0, three: 0, four: 0, five: 1 },
-                _ => MatchCounts { two: 0, three: 0, four: 0, five: 0 },
+                2 => MatchCounts {
+                    two: 1,
+                    three: 0,
+                    four: 0,
+                    five: 0,
+                },
+                3 => MatchCounts {
+                    two: 0,
+                    three: 1,
+                    four: 0,
+                    five: 0,
+                },
+                4 => MatchCounts {
+                    two: 0,
+                    three: 0,
+                    four: 1,
+                    five: 0,
+                },
+                5 => MatchCounts {
+                    two: 0,
+                    three: 0,
+                    four: 0,
+                    five: 1,
+                },
+                _ => MatchCounts {
+                    two: 0,
+                    three: 0,
+                    four: 0,
+                    five: 0,
+                },
             }
         })
         // Combine the matches from each thread into a total
         .reduce(
-            || MatchCounts { two: 0, three: 0, four: 0, five: 0 },
+            || MatchCounts {
+                two: 0,
+                three: 0,
+                four: 0,
+                five: 0,
+            },
             |a, b| MatchCounts {
                 two: a.two + b.two,
                 three: a.three + b.three,
@@ -134,10 +166,10 @@ fn main() -> io::Result<()> {
     let stdin = io::stdin();
     for line in stdin.lock().lines() {
         let line = line?;
-        
+
         #[cfg(feature = "bench")]
         let query_start = Instant::now();
-        
+
         let draw: Vec<u8> = line
             .split_whitespace()
             .filter_map(|n| n.parse::<u8>().ok())
@@ -145,11 +177,9 @@ fn main() -> io::Result<()> {
 
         match report_matches(&draw, &tickets) {
             Ok(matches) => {
-                println!("{} {} {} {}", 
-                    matches.two, 
-                    matches.three, 
-                    matches.four, 
-                    matches.five
+                println!(
+                    "{} {} {} {}",
+                    matches.two, matches.three, matches.four, matches.five
                 );
             }
             Err(e) => {
@@ -157,7 +187,7 @@ fn main() -> io::Result<()> {
                 continue;
             }
         }
-        
+
         #[cfg(feature = "bench")]
         eprintln!(
             "Query '{}' took {:.3} ms",
@@ -168,4 +198,3 @@ fn main() -> io::Result<()> {
 
     Ok(())
 }
-
