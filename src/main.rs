@@ -2,9 +2,26 @@ use std::env;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 use std::time::Instant;
+use rayon::prelude::*; 
+
+struct MatchCounts {
+    two: u32,
+    three: u32,
+    four: u32,
+    five: u32,
+}
 
 fn is_valid_number(n: u8) -> bool {
     n >= 1 && n <= 90
+}
+
+// Create a bitmask from the picks (1-90)
+// This allows us to use bitwise operations to check for matches
+// This is much faster than iterating over the ticket and checking each number
+fn create_bitmask(numbers: &[u8]) -> u128 {
+    numbers.iter().fold(0u128, |mask, &num| {
+        mask | (1u128 << (num - 1))
+    })
 }
 
 fn main() -> io::Result<()> {
@@ -19,11 +36,11 @@ fn main() -> io::Result<()> {
     let file = File::open(&args[1])?;
     let reader = BufReader::new(file);
 
-    let mut tickets: Vec<[u8; 5]> = Vec::new();
+    let mut tickets: Vec<u128> = Vec::new();
     let mut line_count = 0;
     let mut valid_tickets = 0;
 
-    // Read tickets from file into memory
+    // Read tickets from file and convert to bitmasks
     for line in reader.lines() {
         line_count += 1;
         let line = line?;
@@ -34,7 +51,9 @@ fn main() -> io::Result<()> {
         if nums.len() == 5 {
             // Validate that all numbers are in range 1-90
             if nums.iter().all(|&n| is_valid_number(n)) {
-                tickets.push([nums[0], nums[1], nums[2], nums[3], nums[4]]);
+                // Create the bitmask from the ticket
+                let bitmask = create_bitmask(&nums);
+                tickets.push(bitmask);
                 valid_tickets += 1;
             } else {
                 eprintln!(
@@ -88,24 +107,38 @@ fn main() -> io::Result<()> {
             continue;
         }
 
-        let mut matches2 = 0;
-        let mut matches3 = 0;
-        let mut matches4 = 0;
-        let mut matches5 = 0;
+        // Parallel bitmask-based matching using Rayon
+        let draw_bitmask = create_bitmask(&draw);
+        let matches = tickets
+            .par_iter() // Parallel iteration over tickets
+            .map(|ticket_bitmask| {
+                // Check the number of matches
+                let match_count = (ticket_bitmask & draw_bitmask).count_ones() as u8;
+                match match_count {
+                    2 => MatchCounts { two: 1, three: 0, four: 0, five: 0 },
+                    3 => MatchCounts { two: 0, three: 1, four: 0, five: 0 },
+                    4 => MatchCounts { two: 0, three: 0, four: 1, five: 0 },
+                    5 => MatchCounts { two: 0, three: 0, four: 0, five: 1 },
+                    _ => MatchCounts { two: 0, three: 0, four: 0, five: 0 },
+                }
+            })
+            // Combine the matches from each thread into a total
+            .reduce(
+                || MatchCounts { two: 0, three: 0, four: 0, five: 0 },
+                |a, b| MatchCounts {
+                    two: a.two + b.two,
+                    three: a.three + b.three,
+                    four: a.four + b.four,
+                    five: a.five + b.five,
+                },
+            );
 
-        // Naive matching for now (O(N))
-        for ticket in &tickets {
-            let count = ticket.iter().filter(|n| draw.contains(n)).count();
-            match count {
-                2 => matches2 += 1,
-                3 => matches3 += 1,
-                4 => matches4 += 1,
-                5 => matches5 += 1,
-                _ => {}
-            }
-        }
-
-        println!("{matches2} {matches3} {matches4} {matches5}");
+        println!("{} {} {} {}", 
+            matches.two, 
+            matches.three, 
+            matches.four, 
+            matches.five
+        );
         
         let query_elapsed = query_start.elapsed();
         eprintln!(
