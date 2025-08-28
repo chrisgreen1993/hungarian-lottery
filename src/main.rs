@@ -168,7 +168,7 @@ fn main() -> io::Result<()> {
         let line = line?;
 
         #[cfg(feature = "bench")]
-        let query_start = Instant::now();
+        let report_start = Instant::now();
 
         let draw: Vec<u8> = line
             .split_whitespace()
@@ -190,9 +190,9 @@ fn main() -> io::Result<()> {
 
         #[cfg(feature = "bench")]
         eprintln!(
-            "Query '{}' took {:.3} ms",
+            "Report '{}' took {:.3} ms",
             line,
-            query_start.elapsed().as_secs_f64() * 1000.0
+            report_start.elapsed().as_secs_f64() * 1000.0
         );
     }
 
