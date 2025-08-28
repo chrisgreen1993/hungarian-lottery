@@ -1,11 +1,15 @@
 # Hungarian Lottery
 
 ## Prerequisites
-
-Install Rust via [rustup.rs](https://rustup.rs)
-
 ```bash
+# Install Rust via rustup.rs 
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Alternatively, you could use devbox (which I use for isolated dev envs)
+# But I think the setup takes a bit longer
+curl -fsSL https://get.jetify.com/devbox | bash
+# and then in the project dir
+devbox shell
 ```
 
 ## Build and run
