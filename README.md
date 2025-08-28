@@ -1,6 +1,7 @@
 # Hungarian Lottery
 
 ## Prerequisites
+
 ```bash
 # Install Rust via rustup.rs 
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -45,7 +46,7 @@ Test machine: Apple M1 Pro CPU / 16GB Memory
 
 N = Number of tickets (10 million)
 P = Number of threads (8)
-M = number range (1-90)
+M = Number range (1-90)
 K = Number of picks (5)
 
 | Operation | Time Complexity | Space Complexity | Measured (N=10 million) |
